@@ -1,0 +1,11 @@
+nanobot-ai==0.3.5
+nanobot-channel-voice==0.1.0
+litellm==1.81.7
+aiohttp==3.13.2
+onnxruntime==1.30.0
+kaldi-native-fbank==1.22.3
+cpython-sqlite3==3.11.9
+cpython-bz2==3.11.9
+socksio==1.0.0
+espeakng-loader==0.2.4
+recamera-local==1.1.0

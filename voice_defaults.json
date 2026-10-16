@@ -1,0 +1,79 @@
+{
+  "enabled": true,
+  "backend": "local",
+  "device": "rv1126b",
+  "aec": "hardware",
+  "streaming": true,
+  "context": "Reply in Simplified Chinese or English, matching the user's language. Keep answers short and spoken-friendly.",
+  "audio": {
+    "captureDevice": "ai_asr_vqe",
+    "playbackDevice": "plug:default",
+    "sampleRate": 16000
+  },
+  "vad": {
+    "engine": "silero",
+    "hangoverMs": 400,
+    "maxUtteranceMs": 20000,
+    "silero": {
+      "weights": "vad/silero/v6/rknn.rv1126b",
+      "threshold": 0.8
+    }
+  },
+  "stt": {
+    "provider": "zipformer",
+    "zipformer": {
+      "weights": "stt/zipformer/zh-en/rknn.rv1126b"
+    }
+  },
+  "tts": {
+    "provider": "matcha",
+    "matcha": {
+      "weights": "tts/matcha/zh-en/icefall/rknn.rv1126b",
+      "noiseScale": 0.667,
+      "speed": 1.0
+    }
+  },
+  "wake": {
+    "mode": "strict",
+    "phrases": [
+      "hey mycroft"
+    ],
+    "windowS": 20,
+    "engine": "openwakeword",
+    "openwakeword": {
+      "weights": "wake/openwakeword/hey-mycroft/rknn.rv1126b",
+      "target": "rv1126b",
+      "threshold": 0.6,
+      "refractoryS": 2.0
+    },
+    "ack": {
+      "enabled": true
+    }
+  },
+  "prologue": {
+    "enabled": true,
+    "afterMs": 2000,
+    "intervalMs": 8000,
+    "phrases": [
+      "请稍等。",
+      "我还在处理。",
+      "请再等一会儿。"
+    ]
+  },
+  "bargeIn": {
+    "mode": "pause"
+  },
+  "chunker": {
+    "minChars": 24,
+    "maxChars": 120
+  },
+  "earcons": {
+    "captured": true
+  },
+  "models": {
+    "acceptNotices": [
+      "tts/matcha/zh-en/icefall/rknn.rv1126b",
+      "wake/openwakeword/hey-mycroft/rknn.rv1126b"
+    ]
+  }
+}

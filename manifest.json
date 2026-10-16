@@ -1,0 +1,178 @@
+{
+  "manifest_version": 2,
+  "id": "nanobot",
+  "name": "Nanobot",
+  "name_zh": "Nanobot 智能体",
+  "version": "1.0.0",
+  "type": "self-hosted",
+  "entry": "app.py",
+  "description": "An open-source AI assistant for the reCamera Pro. It provides a browser-based chat console and a hands-free voice channel with wake-word activation, running either fully on-device (local wake-word detection, speech recognition and speech synthesis) or through cloud realtime services (OpenAI, Gemini, Qwen). With the bundled recamera-local skill, the assistant operates the camera itself: capturing snapshots, configuring AI detection, recording video clips and managing storage. Model providers, the voice pipeline and skill extensions are all configured from the built-in web interface.",
+  "description_zh": "面向 reCamera Pro 的开源 AI 助手。提供浏览器聊天控制台与免提语音通道：语音链路支持唤醒词激活，可完全在端侧运行（本地唤醒词检测、语音识别与语音合成），也可接入云端 realtime 服务（OpenAI、Gemini、Qwen）。通过内置的 recamera-local 技能，助手可直接操作摄像头：拍摄快照、配置 AI 检测、录制视频片段、管理存储空间。模型供应商、语音管线与技能扩展均在内置网页界面中完成配置。",
+  "author": "Seeed Studio",
+  "release": {
+    "sequence": 52,
+    "channel": "stable"
+  },
+  "compatibility": {
+    "platform_profile": "rv1126b-linux-gnu-cp311-rknn232-v1",
+    "arch": "aarch64",
+    "python": "==3.11.*"
+  },
+  "python": {
+    "runtime_profile": "recamera-ai-cp311-v1",
+    "isolation": "per-release",
+    "imports": [],
+    "wheels": []
+  },
+  "artifacts": [],
+  "webui": {
+    "port": 18766,
+    "path": "/",
+    "token": {
+      "file": "webui_password.txt",
+      "fragment_param": "bootstrapSecret"
+    }
+  },
+  "config_schema": {
+    "groups": [
+      {
+        "key": "webui",
+        "title": "Web UI",
+        "title_zh": "网页界面",
+        "items": [
+          {
+            "key": "webui_password",
+            "type": "string",
+            "apply": "restart",
+            "title": "Web UI password",
+            "title_zh": "访问密码",
+            "default": "",
+            "help": "Password for signing in to the nanobot web UI (tokenIssueSecret). Leave empty to auto-generate one on first start; the generated password is written to webui_password.txt in the app data directory and also printed to the app log.",
+            "help_zh": "登录网页界面的密码（对应 nanobot 的 tokenIssueSecret）。留空则首次启动时自动生成，可在应用数据目录下的 webui_password.txt 中查看，也会打印到应用日志。"
+          },
+          {
+            "key": "webui_allow_remote_package_install",
+            "type": "boolean",
+            "apply": "restart",
+            "title": "Remote plugin installation",
+            "title_zh": "允许远程安装插件",
+            "default": true,
+            "help": "Allow installing plugins and optional feature packages from the web UI. Access through App Center is always treated as remote, so turning this off blocks all plugin installation. The web UI itself is password-protected; disable this only on untrusted networks.",
+            "help_zh": "允许在网页界面中安装插件与可选功能包。从应用中心发起的访问一律按远程连接处理，关闭后所有插件安装都会被拒绝。网页界面本身有密码保护，仅在不可信的网络环境中才建议关闭。"
+          }
+        ]
+      },
+      {
+        "key": "network",
+        "title": "Network",
+        "title_zh": "网络",
+        "items": [
+          {
+            "key": "download_proxy",
+            "type": "string",
+            "apply": "restart",
+            "title": "Network proxy",
+            "title_zh": "网络代理",
+            "default": "",
+            "help": "Optional HTTP(S) proxy for model weight downloads and outbound LLM API calls, e.g. http://192.168.1.10:7890. Leave empty to connect directly.",
+            "help_zh": "可选的 HTTP(S) 代理，用于模型权重下载与 LLM API 外呼，例如 http://192.168.1.10:7890。留空表示直接连接。"
+          }
+        ]
+      },
+      {
+        "key": "diagnostics",
+        "title": "Diagnostics",
+        "title_zh": "诊断",
+        "items": [
+          {
+            "key": "debug_logs",
+            "type": "boolean",
+            "apply": "restart",
+            "title": "Debug logs",
+            "title_zh": "调试日志",
+            "default": false,
+            "help": "Run the gateway with --verbose (DEBUG level). Voice turns, tool calls, and gate decisions land in the app log. Pair with the voice panel's 'Log transcripts' to include what was said. Turn it off when done: logs are not rotated.",
+            "help_zh": "以 --verbose（DEBUG 级）运行网关：语音轮次、工具调用与唤醒门决策都会写入应用日志。配合语音面板中的 Log transcripts 可一并记录对话原文。排查完成后请关闭：日志不做轮转。"
+          }
+        ]
+      }
+    ]
+  },
+  "resources": {
+    "claims": [
+      {
+        "name": "npu.rknn",
+        "mode": "exclusive",
+        "required": true
+      },
+      {
+        "name": "result.publish",
+        "mode": "brokered",
+        "required": false
+      }
+    ]
+  },
+  "permissions": {
+    "sdk": [
+      "npu.infer",
+      "result.publish"
+    ],
+    "filesystem": {
+      "read": [],
+      "write": []
+    },
+    "network": {
+      "listen": [
+        "webui"
+      ],
+      "outbound": [
+        "llm-apis",
+        "model-downloads"
+      ]
+    }
+  },
+  "health": {
+    "protocol": "kit-health-v1",
+    "startup_timeout_sec": 60,
+    "stabilization_sec": 3,
+    "liveness_interval_sec": 10,
+    "liveness_failures": 3,
+    "restart": {
+      "policy": "on-failure",
+      "max_attempts": 3,
+      "window_sec": 300,
+      "backoff_sec": [
+        5,
+        15,
+        30
+      ]
+    }
+  },
+  "instances": {
+    "max": 1,
+    "config_scope": "app",
+    "data_scope": "app",
+    "endpoint_mode": "allocated"
+  },
+  "capabilities": [],
+  "icon": {
+    "path": "icon.png",
+    "media_type": "image/png"
+  },
+  "scene": "AI Assistant",
+  "scene_zh": "智能助理",
+  "tags": [
+    "ai-assistant",
+    "llm",
+    "chat",
+    "voice"
+  ],
+  "package": {
+    "exclude": [
+      "lib",
+      "tools",
+      "upstream",
+      "app-requirements.txt"
+    ]
+  }
+}

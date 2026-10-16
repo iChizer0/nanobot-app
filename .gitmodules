@@ -1,0 +1,9 @@
+[submodule "lib/nanobot"]
+	path = lib/nanobot
+	url = https://github.com/iChizer0/nanobot
+[submodule "lib/nanobot-channel-voice"]
+	path = lib/nanobot-channel-voice
+	url = https://github.com/iChizer0/nanobot-channel-voice
+[submodule "lib/reCamera-Intellisense"]
+	path = lib/reCamera-Intellisense
+	url = https://github.com/iChizer0/reCamera-Intellisense
