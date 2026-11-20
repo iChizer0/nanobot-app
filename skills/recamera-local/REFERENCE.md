@@ -3,6 +3,7 @@
 Detailed schemas for the `recamera-local` skill. Read this when constructing
 structured arguments (rules, triggers, ISP values); the command list lives in
 [SKILL.md](SKILL.md) and per-command usage in `rcl <command> --help`.
+For high-level watch/alert requests, first read [OBSERVATION.md](OBSERVATION.md): these primitives do not by themselves provide durable task or transition semantics.
 
 ## Contents
 
@@ -116,23 +117,35 @@ Normalized event (from `get_detection_events` / `wait_event`):
 
 ```json
 {"timestamp": "2026-04-20T12:34:56Z", "timestamp_unix_ms": 1745152496000,
- "rule_name": "front-door-person", "snapshot_path": "/mnt/rc_mmcblk0p8/reCamera/....jpg"}
+ "rule_name": "front-door-person", "snapshot_path": "/mnt/rc_mmcblk0p8/reCamera/....jpg",
+ "file_events": [{"op": "ADDED", "path": "/mnt/rc_mmcblk0p8/reCamera/....jpg",
+                  "size": 12345, "event_uid": 1, "timestamp": 1745152496001}]}
 ```
 
-`snapshot_path` is present when the writer produced a file; it is a local
-path — open it directly (or `read_file`), no fetch needed.
+`file_events` retains every associated snapshot/video and its metadata. A legacy
+`file_event` becomes one entry. `snapshot_path` remains the first file's local
+path for single-file callers — open paths directly (or `read_file`), no fetch needed.
 
 `wait_event timeout_s=60 since_unix_ms=1745152496000` blocks until an event
 **newer than** the watermark exists, then returns:
 
 ```json
-{"events": ["..."], "watermark_unix_ms": 1745152501000, "timed_out": false}
+{"events": ["..."], "observed": {"<canonical-rule-json>": ["100", "101"]},
+ "watermark_unix_ms": 1745152501000, "timed_out": false}
 ```
 
-Loop contract: pass the returned `watermark_unix_ms` back as `since_unix_ms`.
-Omitting it starts the watermark at "now" (only future events). On timeout the
-watermark is unchanged and `timed_out` is true — safe to retry. `timeout_s`
-clamps to [0.5, 300]; default poll interval 0.25 s (`poll_interval_s`).
+Normalized rows also expose `uid`, `uid_str`, and `row_key`; the latter is the
+canonical full RULE JSON, so reused UIDs with different metadata stay distinct.
+For complete RULE and late-FILE coverage, pass the returned `observed` map back
+unchanged. It maps each full RULE identity to its seen `file_id` identities
+(creator UID plus path for legacy single-file events). A row is returned when its
+identity is new or its FILE set grows; the whole updated row is included once,
+independent of timestamp order. The map is bounded by the daemon's current retained window.
+Start with `observed={}` to drain that window once. Timestamp-only calls retain
+the legacy strictly-newer-RULE behavior and cannot recover those updates.
+Omitting cursors starts at "now" (only future events). On timeout the watermark
+and observed map are safe to retry. `timeout_s` clamps to [0.5, 300]; default poll
+interval 0.25 s (`poll_interval_s`).
 
 ## Capture
 
@@ -277,6 +290,32 @@ a brief pipeline gap.
   configuration tarball to a local path (refuses to overwrite). Snapshot
   before making configuration changes so a human can restore a known-good
   state from the Web Console.
+
+## Clock and timezone
+
+- `get_system_time` → `{method, timestamp, timezone, tz, ntp: {address, port}}`.
+- `set_system_time method=ntp|manual [timezone=IANA] [timestamp=unix] [ntp_server=…] [ntp_port=…]`
+  — `ntp` applies server config (kept unless overridden) and triggers an
+  immediate device-side sync; `manual` sets the clock to `timestamp`
+  (default: now). The firmware silently accepts unknown timezones with
+  success, so the command re-reads the device and raises a loud verification
+  error instead of a false success.
+- `probe_timezone [dhcp_probe=false] [geoip_url=…]` →
+  `{perspective: "device", suggested_timezone, needs_user_confirmation,
+  candidates: [{timezone, via}], sources, notes}`. Sources (one bounded
+  attempt each, all broken-clock safe): plain-HTTP geo-IP (IANA name direct);
+  WiFi 802.11d country IEs majority-voted (votes reported; single-zone
+  countries map to one IANA name, multi-zone to candidates); DHCP RFC 4833
+  options 100/101 (`tcode`/`pcode`, opt-in one-shot probe, applies nothing,
+  skipped on static addressing).
+- `sync_system_time [timezone=auto|IANA|null] [method=auto|ntp|manual]
+  [tolerance_s=120] [wait_s=15] [dry_run=false]` — the one-call "fix the
+  device time". Reference time: explicit `reference_unix` → one SNTP query →
+  plain-HTTP `Date` headers; never the camera's own suspect clock. Returns
+  `{changed, verified, method_used, drift_before_s, drift_after_s,
+  timezone: {…}, ntp, warnings, follow_up}`; on total reference failure
+  returns `needs_user_help` + `ask_user` and changes nothing. A manual
+  stopgap re-arms NTP afterwards (auto mode only) so the device self-heals; explicit `method=manual` is respected as-is.
 
 ## Serve-mode protocol
 

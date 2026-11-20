@@ -91,6 +91,7 @@ Licenses as declared in each wheel's METADATA; upstream sources via PyPI.
 | prompt_toolkit | 3.0.53 | see PyPI |
 | propcache | 0.5.4 | Apache-2.0 |
 | protobuf | 7.36.2 | 3-Clause BSD License |
+| psutil | 6.1.1 | BSD-3-Clause |
 | pycparser | 3.0 | BSD-3-Clause |
 | pydantic | 2.13.5 | MIT |
 | pydantic_core | 2.46.5 | MIT |
@@ -108,7 +109,7 @@ Licenses as declared in each wheel's METADATA; upstream sources via PyPI.
 | questionary | 2.1.1 | MIT |
 | RapidFuzz | 3.14.6 | MIT |
 | readability-lxml | 0.9 | Apache-2.0 |
-| recamera-local | 1.1.0 | see PyPI |
+| recamera-local | 1.2.0 | MIT |
 | referencing | 0.37.0 | MIT |
 | regex | 2026.9.10 | Apache-2.0 AND CNRI-Python |
 | requests | 2.34.2 | Apache-2.0 |
@@ -117,7 +118,9 @@ Licenses as declared in each wheel's METADATA; upstream sources via PyPI.
 | setproctitle | 1.3.7 | BSD-3-Clause |
 | shellingham | 1.5.4 | ISC License |
 | six | 1.17.0 | MIT |
-| sniffio | 1.3.1 | MIT OR Apache-2.0 |
+| sniffio
+ | 1.3.1
+ | MIT OR Apache-2.0 |
 | socksio | 1.0.0 | UNKNOWN |
 | sse-starlette | 3.4.11 | BSD-3-Clause |
 | starlette | 1.6.0 | BSD-3-Clause |

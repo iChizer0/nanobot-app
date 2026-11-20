@@ -8,4 +8,5 @@ cpython-sqlite3==3.11.9
 cpython-bz2==3.11.9
 socksio==1.0.0
 espeakng-loader==0.2.4
-recamera-local==1.1.0
+psutil==6.1.1
+recamera-local==1.2.0

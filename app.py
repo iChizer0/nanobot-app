@@ -15,11 +15,12 @@ overlay <- Configure-dialog knobs.
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import secrets
 import shutil
-import socket
+import ssl
 import subprocess
 import sys
 import threading
@@ -29,36 +30,67 @@ from pathlib import Path
 from kit.app import App, run_app
 from kit.config import appdata_root
 
-class _GateHandler(BaseHTTPRequestHandler):
-    """Readiness gate on GATE_PORT (what App Center's Open UI links to).
+def _probe_status(port: int, *, tls: bool = False) -> int | None:
+    """Return the loopback WebUI's HTTP status, or None when it is not serving.
 
-    The gateway takes tens of seconds to boot (interpreter, onnxruntime,
-    channel init); without this shim the launch redirect lands on a closed
-    port and the browser shows ERR_EMPTY_RESPONSE. While 127.0.0.1:WEBUI_PORT
-    refuses TCP, answer a self-refreshing 'starting' page; once it accepts,
-    302 to it. The browser carries the launch URL's fragment (the bootstrap
-    secret) across the redirect, so auto-login survives."""
+    A listening TCP socket is not readiness: it may belong to an initializing
+    gateway, and an nginx relay may answer 502. Any non-5xx HTTP response,
+    including the WebUI's authentication response, proves the HTTP route is up.
+    The relay uses the device's self-signed certificate only for this loopback
+    probe; no credentials or user data are sent.
+    """
+    connection: http.client.HTTPConnection | None = None
+    try:
+        if tls:
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            connection = http.client.HTTPSConnection(
+                "127.0.0.1", port, timeout=1.5, context=context)
+        else:
+            connection = http.client.HTTPConnection(
+                "127.0.0.1", port, timeout=1.5)
+        connection.request(
+            "GET", "/", headers={"Host": "127.0.0.1", "Connection": "close"})
+        response = connection.getresponse()
+        response.read(1024)
+        return response.status
+    except (OSError, http.client.HTTPException):
+        return None
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+class _GateHandler(BaseHTTPRequestHandler):
+    """Serve a retrying page until the gateway's HTTP route is actually ready.
+
+    The browser carries the launch URL's fragment (the bootstrap secret)
+    across the eventual 302, so auto-login survives. An unavailable or broken
+    optional nginx TLS relay falls back to the direct HTTP WebUI.
+    """
 
     protocol_version = "HTTP/1.1"
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
-        try:
-            with socket.create_connection(("127.0.0.1", WEBUI_PORT),
-                                          timeout=2):
-                pass
-        except OSError:
+        status = _probe_status(WEBUI_PORT)
+        if status is None or status >= 500:
             self._interstitial()
             return
         # Host may carry a port or brackets (IPv6); only the name matters.
-        host = (self.headers.get("Host") or "").rsplit(":", 1)[0] or "127.0.0.1"
+        raw_host = (self.headers.get("Host") or "").strip()
+        if raw_host.startswith("["):
+            closing = raw_host.find("]")
+            host = raw_host[:closing + 1] if closing >= 0 else "127.0.0.1"
+        else:
+            host = raw_host.rsplit(":", 1)[0] if raw_host.count(":") == 1 else raw_host
+            host = host or "127.0.0.1"
         scheme, port = "http", WEBUI_PORT
-        try:  # per-request probe: self-heals if nginx/reload happens later
-            with socket.create_connection(("127.0.0.1", RELAY_PORT),
-                                          timeout=1):
-                scheme, port = "https", RELAY_PORT
-        except OSError:
-            pass  # relay absent (old firmware, nginx down) -> plain HTTP
+        relay_status = _probe_status(RELAY_PORT, tls=True)
+        if relay_status is not None and relay_status < 500:
+            scheme, port = "https", RELAY_PORT
         self.send_response(302)
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Location", f"{scheme}://{host}:{port}/")
         self.send_header("Content-Length", "0")
         self.end_headers()
@@ -75,10 +107,14 @@ class _GateHandler(BaseHTTPRequestHandler):
             "border-radius:50%;animation:s 1s linear infinite}"
             "@keyframes s{to{transform:rotate(360deg)}}</style>"
             "<main><div class=spin></div><h3>nanobot is starting</h3>"
-            "<p>This page reloads automatically.</p></main>")
+            "<p>This page reloads automatically.</p></main>"
+            "<script>setTimeout(function(){var u=new URL(window.location.href);"
+            "u.searchParams.set('retry',Date.now().toString());"
+            "window.location.replace(u.href)},1500)</script>")
         body = page.encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)

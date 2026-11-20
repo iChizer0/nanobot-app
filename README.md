@@ -32,9 +32,10 @@ and installs it into the agent workspace on every start
 camera it runs on: snapshots, AI detection rules and realtime event waits,
 recording triggers, clips/files, storage, ISP, GPIO, video encode, apps, and
 result push. Everything is loopback — the skill reads the device API token
-itself, zero configuration. Ask the agent things like "what do you see right
-now" or "alert me when a person appears"; invoke it explicitly with
-`$recamera-local`.
+itself, zero configuration. The v2.4.0 bundle adds the deterministic observation
+playbook, multi-file recording-event support and broken-clock-safe time repair.
+Ask the agent things like "what do you see right now" or "alert me when a person
+appears"; invoke it explicitly with `$recamera-local`.
 
 ## Configuration
 
@@ -104,8 +105,14 @@ Manage the weights store by hand: `ssh root@<device>` then
 
 - Multiple instances / gateway ports: this app runs exactly one gateway on
   the fixed Web UI port 18765. The card's Open UI link points at a small
-  readiness gate (18766) that shows a starting page until the gateway
-  answers, then redirects.
+  readiness gate (18766) that retries without cache until the gateway answers
+  HTTP, then redirects. It uses the HTTPS relay only when that route also
+  answers without a server error, otherwise it falls back to direct HTTP.
+- The venv bundles psutil 6.1.1 with its matching aarch64 extension. This
+  shadows broken mixed-version system installations so RKNN voice models load
+  on the NPU instead of failing or taking an expensive fallback path. Pipeline
+  rebuilds also drop released adapters and reclaim native allocator arenas to
+  reduce the memory high-water mark after repeated model changes.
 - The overlay may also enable other nanobot channels (telegram, …) and MCP
   servers — see nanobot's `docs/configuration.md`.
 
@@ -128,6 +135,8 @@ Manage the weights store by hand: `ssh root@<device>` then
 
 ```sh
 git submodule update --init
+# 0) materialize the pinned Intellisense skill and rebuild its wheel
+python3 tools/sync_recamera_local.py --version 1.2.0
 # 1) build the upstream wheels (nanobot's hatch hook builds the WebUI; needs bun)
 cd lib/nanobot/webui && bun install && bun run build && cd ..
 pip3 wheel . --no-deps -w ../../build/wheelhouse
@@ -144,8 +153,8 @@ openssl dgst -sha256 -sign <owner_key> build/dist/nanobot-1.0.0-arm64.tar.gz \
 ```
 
 The wheelhouse also contains hand-built wheels (cpython-sqlite3,
-cpython-bz2, recamera_local); `build/` (wheelhouse, dist, scratch) is
-gitignored.
+cpython-bz2) and the reproducibly generated recamera_local wheel; `build/`
+(wheelhouse, dist, scratch) is gitignored.
 
 ### Submodules
 
