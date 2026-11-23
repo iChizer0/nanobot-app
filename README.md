@@ -148,8 +148,8 @@ python3 tools/specialize_wheelhouse.py   # run from build/
 validate_app.py --mode publish --sdk-root <ext-api> --app-dir .
 package_app.py --app-dir . --out build/dist --wheelhouse build/wheelhouse \
   --requirements app-requirements.txt --sdk-root <ext-api>
-openssl dgst -sha256 -sign <owner_key> build/dist/nanobot-1.0.0-arm64.tar.gz \
-  | openssl base64 -A > build/dist/nanobot-1.0.0-arm64.tar.gz.sig.b64
+openssl dgst -sha256 -sign <owner_key> build/dist/nanobot-1.0.1-arm64.tar.gz \
+  | openssl base64 -A > build/dist/nanobot-1.0.1-arm64.tar.gz.sig.b64
 ```
 
 The wheelhouse also contains hand-built wheels (cpython-sqlite3,
